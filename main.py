@@ -10,12 +10,12 @@ import os
 
 # Get token from environment variables (Secrets)
 TOKEN = os.getenv("DISCORD_TOKEN")
-DEVELOPER_IDS = [1173273078621540397, 1131520696363794442]
+DEVELOPER_IDS = [1173273078621540397, 1131520696363794442, 1158147273381920798]
 
 class NukeBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.all()
-        # Prefix is now configurable, default is !
+        # Prefix is now configurable, default is =
         super().__init__(command_prefix='=', intents=intents)
 
     async def setup_hook(self):
