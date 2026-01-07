@@ -16,7 +16,7 @@ class NukeBot(commands.Bot):
     def __init__(self):
         intents = discord.Intents.all()
         # Prefix is now configurable, default is !
-        super().__init__(command_prefix='!', intents=intents)
+        super().__init__(command_prefix='=', intents=intents)
 
     async def setup_hook(self):
         try:
